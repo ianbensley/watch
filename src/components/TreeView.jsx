@@ -29,7 +29,7 @@ export default function TreeView({ data, maps, filtered, onOpenWatch, onAddWatch
       return { name: b.name, _type: 'brand', children: colls }
     }).filter((b) => b.children.length)
 
-    return { name: 'Collection', _type: 'root', children: brands }
+    return { name: 'All Brands', _type: 'root', children: brands }
   }, [data, filtered])
 
   const renderNode = ({ nodeDatum, toggleNode }) => {

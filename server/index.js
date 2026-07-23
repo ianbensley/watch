@@ -12,6 +12,16 @@ const app = express()
 app.use(compression())
 app.use(express.json({ limit: '2mb' }))
 
+// ---------- Simple password gate ----------
+// Set APP_PASSWORD in the environment to change it. Images under /uploads stay
+// public (so <img> tags load), but all data endpoints require the header.
+const APP_PASSWORD = process.env.APP_PASSWORD || 'Website12'
+app.use('/api', (req, res, next) => {
+  if (!APP_PASSWORD) return next()
+  if (req.get('x-app-password') === APP_PASSWORD) return next()
+  res.status(401).json({ error: 'unauthorized' })
+})
+
 // ---------- Image uploads ----------
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
@@ -152,6 +162,15 @@ app.post('/api/fields', (req, res) => {
     key, label, type || 'text', JSON.stringify(options || []), unit || null,
     group_name || 'Custom', maxSort, show_in_gallery ? 1 : 0, show_in_table ? 1 : 0)
   res.json({ ...db.prepare('SELECT * FROM field_defs WHERE id=?').get(info.lastInsertRowid), options: options || [] })
+})
+// Reorder fields (and therefore groups). Body: { order: [fieldId, ...] }.
+// Must be declared before '/api/fields/:id' so 'reorder' isn't treated as an id.
+app.put('/api/fields/reorder', (req, res) => {
+  const { order } = req.body
+  if (!Array.isArray(order)) return res.status(400).json({ error: 'order array required' })
+  const upd = db.prepare('UPDATE field_defs SET sort=? WHERE id=?')
+  db.transaction(() => order.forEach((id, i) => upd.run(i, id)))()
+  res.json({ ok: true })
 })
 app.put('/api/fields/:id', (req, res) => {
   const { label, type, options, unit, group_name, show_in_gallery, show_in_table } = req.body

@@ -49,6 +49,10 @@ npm run start    # Express serves API + /dist on :3001
 
 > The SQLite file lives at `$DATA_DIR/watches.db` and uploads at `$DATA_DIR/uploads/`. As long as the volume is mounted at `/data` and `DATA_DIR=/data`, nothing is lost on redeploy.
 
+### Password
+
+The app is gated behind a password screen. Default password: **`Website12`**. To change it, set an environment variable **`APP_PASSWORD`** to your chosen value (Railway → service → Variables). Note this is a lightweight gate suitable for a personal site — the images under `/uploads` remain directly accessible by URL.
+
 ### Backups
 Your whole database is a single file. To back up, download `watches.db` (and the `uploads/` folder) from the volume via the Railway shell, or copy `./data/` when running locally.
 

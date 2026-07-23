@@ -10,11 +10,18 @@ import EntityForm from './components/EntityForm.jsx'
 import FieldManager from './components/FieldManager.jsx'
 import LibraryManager from './components/LibraryManager.jsx'
 import WatchDetail from './components/WatchDetail.jsx'
+import Login from './components/Login.jsx'
 import { IcTree, IcGallery, IcTable, IcPlus, IcCog, IcMenu, IcWatch, IcColumns } from './components/Icons.jsx'
 
 const LS = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d } catch { return d } }
 
 export default function App() {
+  const [authed, setAuthed] = useState(() => !!sessionStorage.getItem('appauth'))
+  if (!authed) return <Login onAuthed={() => setAuthed(true)} />
+  return <Directory onLogout={() => { sessionStorage.removeItem('appauth'); setAuthed(false) }} />
+}
+
+function Directory({ onLogout }) {
   const [data, setData] = useState(null)
   const [view, setView] = useState(() => LS('view', 'gallery'))
   const [search, setSearch] = useState('')
@@ -90,9 +97,10 @@ export default function App() {
         </div>
         <div className="spacer" />
         <span className="count-chip">{filtered.length} / {maps.watches.length} watches</span>
-        <button className="btn ghost" onClick={() => setModal({ type: 'library' })}><IcColumns size={15} /> Manage</button>
-        <button className="btn ghost" onClick={() => setModal({ type: 'fields' })}><IcCog size={15} /> Fields</button>
-        <button className="btn gold" onClick={() => setModal({ type: 'watch' })}><IcPlus size={15} /> Add Watch</button>
+        <button className="btn ghost" onClick={() => setModal({ type: 'library' })}><IcColumns size={15} /><span className="lbl"> Manage</span></button>
+        <button className="btn ghost" onClick={() => setModal({ type: 'fields' })}><IcCog size={15} /><span className="lbl"> Fields</span></button>
+        <button className="btn gold" onClick={() => setModal({ type: 'watch' })}><IcPlus size={15} /><span className="lbl"> Add Watch</span></button>
+        <button className="btn icon ghost" onClick={onLogout} title="Lock">🔒</button>
       </div>
 
       <div className="body">

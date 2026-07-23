@@ -42,8 +42,7 @@ export default function Filters({ data, maps, search, setSearch, filters, setFil
         <div className="chip-row">
           {data.brands.map((b) => (
             <span key={b.id} className={`chip ${filters.brands.includes(b.id) ? 'on' : ''}`}
-              onClick={() => setFilters((f) => ({ ...f, brands: toggle(f.brands, b.id) }))}
-              onDoubleClick={() => onEditBrand(b)} title="Double-click to edit">
+              onClick={() => setFilters((f) => ({ ...f, brands: toggle(f.brands, b.id) }))}>
               {b.name}
             </span>
           ))}
@@ -57,8 +56,7 @@ export default function Filters({ data, maps, search, setSearch, filters, setFil
         <div className="chip-row">
           {visibleCollections.map((c) => (
             <span key={c.id} className={`chip ${filters.collections.includes(c.id) ? 'on' : ''}`}
-              onClick={() => setFilters((f) => ({ ...f, collections: toggle(f.collections, c.id) }))}
-              onDoubleClick={() => onEditCollection(c)} title="Double-click to edit">
+              onClick={() => setFilters((f) => ({ ...f, collections: toggle(f.collections, c.id) }))}>
               {c.name}
             </span>
           ))}
