@@ -22,7 +22,7 @@
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
-html, body { overflow-x: hidden; max-width: 100%; }
+html, body { overflow-x: hidden; max-width: 100%; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body {
   background:
     radial-gradient(1200px 600px at 80% -10%, rgba(200,162,74,0.05), transparent 60%),
@@ -267,6 +267,11 @@ table.grid td.name { font-family: var(--serif); }
 .login-err { color: #e57c6d; font-size: 12.5px; }
 
 @media (max-width: 720px) {
+  /* 16px prevents iOS Safari from auto-zooming when a field is focused */
+  input, select, textarea,
+  .search-box input, .field input, .field select, .field textarea,
+  .login-card input, .range-row input { font-size: 16px; }
+
   .topbar { height: auto; flex-wrap: wrap; padding: 8px 12px; gap: 8px; }
   .brand-mark .en { display: none; }
   .count-chip { display: none; }
