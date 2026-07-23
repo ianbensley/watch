@@ -27,6 +27,13 @@ app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '7d' }))
 const parse = (row) => row && { ...row, values: JSON.parse(row.values_json || '{}') }
 const imagesFor = db.prepare('SELECT id, filename, is_primary, sort FROM images WHERE watch_id = ? ORDER BY is_primary DESC, sort ASC')
 
+// Remove image files from disk for a set of watches (used before cascade deletes).
+function unlinkImagesForWatches(watchIds) {
+  if (!watchIds.length) return
+  const rows = db.prepare(`SELECT filename FROM images WHERE watch_id IN (${watchIds.map(() => '?').join(',')})`).all(...watchIds)
+  rows.forEach((im) => { try { fs.unlinkSync(path.join(UPLOAD_DIR, im.filename)) } catch {} })
+}
+
 function watchWithExtras(row) {
   const w = parse(row)
   w.images = imagesFor.all(w.id).map((im) => ({ ...im, url: `/uploads/${im.filename}` }))
@@ -59,7 +66,10 @@ app.put('/api/brands/:id', (req, res) => {
   res.json(db.prepare('SELECT * FROM brands WHERE id=?').get(req.params.id))
 })
 app.delete('/api/brands/:id', (req, res) => {
-  db.prepare('DELETE FROM brands WHERE id=?').run(req.params.id)
+  const wids = db.prepare('SELECT w.id FROM watches w JOIN collections c ON w.collection_id=c.id WHERE c.brand_id=?')
+    .all(req.params.id).map((r) => r.id)
+  unlinkImagesForWatches(wids)
+  db.prepare('DELETE FROM brands WHERE id=?').run(req.params.id) // cascades to collections, watches, images
   res.json({ ok: true })
 })
 
@@ -78,7 +88,9 @@ app.put('/api/collections/:id', (req, res) => {
   res.json(db.prepare('SELECT * FROM collections WHERE id=?').get(req.params.id))
 })
 app.delete('/api/collections/:id', (req, res) => {
-  db.prepare('DELETE FROM collections WHERE id=?').run(req.params.id)
+  const wids = db.prepare('SELECT id FROM watches WHERE collection_id=?').all(req.params.id).map((r) => r.id)
+  unlinkImagesForWatches(wids)
+  db.prepare('DELETE FROM collections WHERE id=?').run(req.params.id) // cascades to watches, images
   res.json({ ok: true })
 })
 

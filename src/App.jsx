@@ -8,8 +8,9 @@ import TreeView from './components/TreeView.jsx'
 import WatchForm from './components/WatchForm.jsx'
 import EntityForm from './components/EntityForm.jsx'
 import FieldManager from './components/FieldManager.jsx'
+import LibraryManager from './components/LibraryManager.jsx'
 import WatchDetail from './components/WatchDetail.jsx'
-import { IcTree, IcGallery, IcTable, IcPlus, IcCog, IcMenu, IcWatch } from './components/Icons.jsx'
+import { IcTree, IcGallery, IcTable, IcPlus, IcCog, IcMenu, IcWatch, IcColumns } from './components/Icons.jsx'
 
 const LS = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d } catch { return d } }
 
@@ -89,6 +90,7 @@ export default function App() {
         </div>
         <div className="spacer" />
         <span className="count-chip">{filtered.length} / {maps.watches.length} watches</span>
+        <button className="btn ghost" onClick={() => setModal({ type: 'library' })}><IcColumns size={15} /> Manage</button>
         <button className="btn ghost" onClick={() => setModal({ type: 'fields' })}><IcCog size={15} /> Fields</button>
         <button className="btn gold" onClick={() => setModal({ type: 'watch' })}><IcPlus size={15} /> Add Watch</button>
       </div>
@@ -134,6 +136,9 @@ export default function App() {
       )}
       {modal?.type === 'fields' && (
         <FieldManager fields={data.fields} onClose={() => setModal(null)} onSaved={reload} />
+      )}
+      {modal?.type === 'library' && (
+        <LibraryManager data={data} maps={maps} reload={reload} onClose={() => setModal(null)} />
       )}
 
       {detail && (
