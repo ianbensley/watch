@@ -1,0 +1,16 @@
+const s = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round' }
+const S = (p) => ({ width: p.size || 16, height: p.size || 16, viewBox: '0 0 24 24', ...s })
+
+export const IcTree = (p) => (<svg {...S(p)}><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="5" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.5 11 15.5 6.5M8.5 13l7 4.5"/></svg>)
+export const IcGallery = (p) => (<svg {...S(p)}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>)
+export const IcTable = (p) => (<svg {...S(p)}><rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M3 9h18M3 14h18M9 4v16"/></svg>)
+export const IcSearch = (p) => (<svg {...S(p)}><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>)
+export const IcPlus = (p) => (<svg {...S(p)}><path d="M12 5v14M5 12h14"/></svg>)
+export const IcClose = (p) => (<svg {...S(p)}><path d="M6 6l12 12M18 6 6 18"/></svg>)
+export const IcEdit = (p) => (<svg {...S(p)}><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>)
+export const IcTrash = (p) => (<svg {...S(p)}><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>)
+export const IcCog = (p) => (<svg {...S(p)}><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.3l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2.3-1.3L13.7 2h-3.4l-.3 2.5a7 7 0 0 0-2.3 1.3l-2.3-1-2 3.4 2 1.5A7 7 0 0 0 5 12a7 7 0 0 0 .1 1.3l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2.3 1.3l.3 2.5h3.4l.3-2.5a7 7 0 0 0 2.3-1.3l2.3 1 2-3.4-2-1.5A7 7 0 0 0 19 12Z"/></svg>)
+export const IcColumns = (p) => (<svg {...S(p)}><rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M9 4v16M15 4v16"/></svg>)
+export const IcMenu = (p) => (<svg {...S(p)}><path d="M4 6h16M4 12h16M4 18h16"/></svg>)
+export const IcWatch = (p) => (<svg {...S(p)}><circle cx="12" cy="12" r="6"/><path d="M12 9v3l2 1M9 6l.5-3h5L15 6M9 18l.5 3h5l.5-3"/></svg>)
+export const IcChevron = (p) => (<svg {...S(p)}><path d="m9 6 6 6-6 6"/></svg>)
