@@ -22,6 +22,7 @@
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
+html, body { overflow-x: hidden; max-width: 100%; }
 body {
   background:
     radial-gradient(1200px 600px at 80% -10%, rgba(200,162,74,0.05), transparent 60%),
@@ -65,14 +66,15 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; colo
 .spacer { flex: 1; }
 .count-chip { color: var(--text-faint); font-size: 12px; }
 
-.body { flex: 1; display: flex; min-height: 0; }
+.body { flex: 1; display: flex; min-height: 0; position: relative; }
 .sidebar {
   width: 300px; border-right: 1px solid var(--line);
   background: var(--bg-2); overflow-y: auto; flex-shrink: 0;
   transition: width .2s, margin .2s;
 }
 .sidebar.collapsed { width: 0; margin-left: -1px; overflow: hidden; }
-.main { flex: 1; overflow: auto; position: relative; }
+.main { flex: 1; overflow: auto; position: relative; min-width: 0; }
+.sidebar-backdrop { display: none; }
 
 /* ---------- Buttons ---------- */
 .btn {
@@ -271,7 +273,9 @@ table.grid td.name { font-family: var(--serif); }
   .topbar .btn .lbl { display: none; }
   .tabs { order: 5; width: 100%; margin: 2px 0 0; }
   .tab { flex: 1; justify-content: center; }
-  .sidebar { position: absolute; z-index: 10; height: calc(100% - 0px); box-shadow: var(--shadow); width: 280px; }
+  .sidebar { position: absolute; top: 0; left: 0; z-index: 20; height: 100%; box-shadow: var(--shadow); width: 84%; max-width: 320px; }
+  .sidebar.collapsed { width: 0; }
+  .sidebar-backdrop { display: block; position: absolute; inset: 0; background: rgba(8,7,6,.55); z-index: 15; }
   .main { width: 100%; }
   .gallery { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; padding: 12px; }
   .toolbar { padding: 10px 12px; }

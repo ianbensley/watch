@@ -11,7 +11,7 @@ import FieldManager from './components/FieldManager.jsx'
 import LibraryManager from './components/LibraryManager.jsx'
 import WatchDetail from './components/WatchDetail.jsx'
 import Login from './components/Login.jsx'
-import { IcTree, IcGallery, IcTable, IcPlus, IcCog, IcMenu, IcWatch, IcColumns } from './components/Icons.jsx'
+import { IcTree, IcGallery, IcTable, IcPlus, IcCog, IcMenu, IcWatch, IcColumns, IcLock } from './components/Icons.jsx'
 
 const LS = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d } catch { return d } }
 
@@ -25,7 +25,7 @@ function Directory({ onLogout }) {
   const [data, setData] = useState(null)
   const [view, setView] = useState(() => LS('view', 'gallery'))
   const [search, setSearch] = useState('')
-  const [sideOpen, setSideOpen] = useState(true)
+  const [sideOpen, setSideOpen] = useState(() => (typeof window !== 'undefined' ? window.innerWidth > 720 : true))
   const [filters, setFilters] = useState({ brands: [], collections: [], fields: {} })
   const [modal, setModal] = useState(null) // {type, item}
   const [detail, setDetail] = useState(null)
@@ -100,10 +100,11 @@ function Directory({ onLogout }) {
         <button className="btn ghost" onClick={() => setModal({ type: 'library' })}><IcColumns size={15} /><span className="lbl"> Manage</span></button>
         <button className="btn ghost" onClick={() => setModal({ type: 'fields' })}><IcCog size={15} /><span className="lbl"> Fields</span></button>
         <button className="btn gold" onClick={() => setModal({ type: 'watch' })}><IcPlus size={15} /><span className="lbl"> Add Watch</span></button>
-        <button className="btn icon ghost" onClick={onLogout} title="Lock">🔒</button>
+        <button className="btn icon ghost" onClick={onLogout} title="Lock"><IcLock size={16} /></button>
       </div>
 
       <div className="body">
+        {sideOpen && <div className="sidebar-backdrop" onClick={() => setSideOpen(false)} />}
         <div className={`sidebar ${sideOpen ? '' : 'collapsed'}`}>
           <Filters
             data={data} maps={maps} search={search} setSearch={setSearch}
