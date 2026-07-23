@@ -1,0 +1,14 @@
+# Pin Node 22: better-sqlite3 ships prebuilt binaries for it, so no native
+# compile is needed. python3/gcc/make are included only as a fallback in case
+# a build from source is ever required.
+[phases.setup]
+nixPkgs = ["nodejs_22", "python3", "gcc", "gnumake"]
+
+[phases.install]
+cmds = ["npm install"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "npm run start"
