@@ -9,6 +9,7 @@ import WatchForm from './components/WatchForm.jsx'
 import EntityForm from './components/EntityForm.jsx'
 import FieldManager from './components/FieldManager.jsx'
 import LibraryManager from './components/LibraryManager.jsx'
+import ImportModal from './components/ImportModal.jsx'
 import WatchDetail from './components/WatchDetail.jsx'
 import Login from './components/Login.jsx'
 import { IcTree, IcGallery, IcTable, IcPlus, IcCog, IcMenu, IcWatch, IcColumns, IcLock } from './components/Icons.jsx'
@@ -26,7 +27,7 @@ function Directory({ onLogout }) {
   const [view, setView] = useState(() => LS('view', 'gallery'))
   const [search, setSearch] = useState('')
   const [sideOpen, setSideOpen] = useState(() => (typeof window !== 'undefined' ? window.innerWidth > 720 : true))
-  const [filters, setFilters] = useState({ brands: [], collections: [], fields: {} })
+  const [filters, setFilters] = useState({ brands: [], collections: [], families: [], fields: {} })
   const [modal, setModal] = useState(null) // {type, item}
   const [detail, setDetail] = useState(null)
 
@@ -38,14 +39,16 @@ function Directory({ onLogout }) {
     if (!data) return null
     const brandById = Object.fromEntries(data.brands.map((b) => [b.id, b]))
     const collById = Object.fromEntries(data.collections.map((c) => [c.id, c]))
+    const familyById = Object.fromEntries((data.families || []).map((f) => [f.id, f]))
     const fields = fieldByKey(data.fields)
     const watches = data.watches.map((w) => {
-      const coll = collById[w.collection_id]
+      const family = familyById[w.family_id]
+      const coll = collById[family ? family.collection_id : w.collection_id]
       const brand = coll ? brandById[coll.brand_id] : null
-      return { ...w, _coll: coll, _brand: brand,
-        _brandName: brand?.name || '—', _collName: coll?.name || '—' }
+      return { ...w, _family: family, _coll: coll, _brand: brand,
+        _brandName: brand?.name || '—', _collName: coll?.name || '—', _familyName: family?.name || '—' }
     })
-    return { brandById, collById, fields, watches }
+    return { brandById, collById, familyById, fields, watches }
   }, [data])
 
   const filtered = useMemo(() => {
@@ -57,7 +60,8 @@ function Directory({ onLogout }) {
         if (!hay.includes(q)) return false
       }
       if (filters.brands.length && !filters.brands.includes(w._brand?.id)) return false
-      if (filters.collections.length && !filters.collections.includes(w.collection_id)) return false
+      if (filters.collections.length && !filters.collections.includes(w._coll?.id)) return false
+      if (filters.families.length && !filters.families.includes(w._family?.id)) return false
       for (const [key, f] of Object.entries(filters.fields)) {
         const field = maps.fields[key]; if (!field) continue
         const v = w.values[key]
@@ -124,9 +128,7 @@ function Directory({ onLogout }) {
             <TableView watches={filtered} fields={data.fields} onOpen={openDetail} />
           )}
           {view === 'tree' && (
-            <TreeView data={data} maps={maps} filtered={filtered}
-              onOpenWatch={openDetail}
-              onAddWatch={(collection_id) => setModal({ type: 'watch', item: { collection_id } })} />
+            <TreeView data={data} maps={maps} filtered={filtered} onOpenWatch={openDetail} />
           )}
         </div>
       </div>
@@ -147,7 +149,11 @@ function Directory({ onLogout }) {
         <FieldManager fields={data.fields} onClose={() => setModal(null)} onSaved={reload} />
       )}
       {modal?.type === 'library' && (
-        <LibraryManager data={data} maps={maps} reload={reload} onClose={() => setModal(null)} />
+        <LibraryManager data={data} maps={maps} reload={reload} onClose={() => setModal(null)}
+          onImport={() => setModal({ type: 'import' })} />
+      )}
+      {modal?.type === 'import' && (
+        <ImportModal onClose={() => setModal(null)} onSaved={reload} />
       )}
 
       {detail && (

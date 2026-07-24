@@ -13,7 +13,7 @@ export default function WatchDetail({ watch, fields, onClose, onEdit, onDeleted 
   const notes = watch.values.notes
 
   return (
-    <Modal wide sub={`${watch._brandName || ''} › ${watch._collName || ''}`} title={watch.name} onClose={onClose}
+    <Modal wide sub={`${watch._brandName || ''} › ${watch._collName || ''} › ${watch._familyName || ''}`} title={watch.name} onClose={onClose}
       footer={(
         <>
           <button className="btn ghost danger" onClick={async () => {

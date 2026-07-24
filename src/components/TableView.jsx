@@ -24,6 +24,7 @@ export default function TableView({ watches, fields, onOpen }) {
       if (key === '_name') { av = a.name; bv = b.name }
       else if (key === '_brand') { av = a._brandName; bv = b._brandName }
       else if (key === '_coll') { av = a._collName; bv = b._collName }
+      else if (key === '_family') { av = a._familyName; bv = b._familyName }
       else { av = a.values[key]; bv = b.values[key] }
       const na = Number(av), nb = Number(bv)
       if (Number.isFinite(na) && Number.isFinite(nb)) return (na - nb) * dir
@@ -70,6 +71,7 @@ export default function TableView({ watches, fields, onOpen }) {
                 {th('_name', 'Watch')}
                 {th('_brand', 'Brand')}
                 {th('_coll', 'Collection')}
+                {th('_family', 'Family')}
                 {shown.map((f) => th(f.key, f.label))}
               </tr>
             </thead>
@@ -82,6 +84,7 @@ export default function TableView({ watches, fields, onOpen }) {
                     <td className="name">{w.name}</td>
                     <td>{w._brandName}</td>
                     <td>{w._collName}</td>
+                    <td>{w._familyName}</td>
                     {shown.map((f) => <td key={f.key}>{fmtValue(f, w.values[f.key])}</td>)}
                   </tr>
                 )

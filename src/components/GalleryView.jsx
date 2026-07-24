@@ -51,7 +51,7 @@ export default function GalleryView({ watches, fields, onOpen }) {
                   {status && <span className="status-dot" style={{ color: statusColor(status) }}>{status}</span>}
                 </div>
                 <div className="card-body">
-                  <span className="card-brand">{w._brandName} · {w._collName}</span>
+                  <span className="card-brand">{w._brandName} · {w._collName} · {w._familyName}</span>
                   <span className="card-name">{w.name}</span>
                   <div className="card-specs">
                     {shown.map((f) => (

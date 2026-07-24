@@ -55,10 +55,11 @@ function watchWithExtras(row) {
 app.get('/api/data', (_req, res) => {
   const brands = db.prepare('SELECT * FROM brands ORDER BY sort, name').all()
   const collections = db.prepare('SELECT * FROM collections ORDER BY sort, name').all()
+  const families = db.prepare('SELECT * FROM families ORDER BY sort, name').all()
   const watches = db.prepare('SELECT * FROM watches ORDER BY sort, name').all().map(watchWithExtras)
   const fields = db.prepare('SELECT * FROM field_defs ORDER BY sort, id').all()
     .map((f) => ({ ...f, options: JSON.parse(f.options_json || '[]') }))
-  res.json({ brands, collections, watches, fields })
+  res.json({ brands, collections, families, watches, fields })
 })
 
 // ---------- Brands ----------
@@ -100,22 +101,52 @@ app.put('/api/collections/:id', (req, res) => {
 app.delete('/api/collections/:id', (req, res) => {
   const wids = db.prepare('SELECT id FROM watches WHERE collection_id=?').all(req.params.id).map((r) => r.id)
   unlinkImagesForWatches(wids)
-  db.prepare('DELETE FROM collections WHERE id=?').run(req.params.id) // cascades to watches, images
+  db.prepare('DELETE FROM collections WHERE id=?').run(req.params.id) // cascades to families, watches, images
+  res.json({ ok: true })
+})
+
+// ---------- Families ----------
+app.post('/api/families', (req, res) => {
+  const { collection_id, name, description, notes } = req.body
+  if (!collection_id || !name) return res.status(400).json({ error: 'collection_id and name required' })
+  const info = db.prepare('INSERT INTO families (collection_id,name,description,notes) VALUES (?,?,?,?)')
+    .run(collection_id, name, description || null, notes || null)
+  res.json(db.prepare('SELECT * FROM families WHERE id=?').get(info.lastInsertRowid))
+})
+app.put('/api/families/:id', (req, res) => {
+  const { collection_id, name, description, notes } = req.body
+  db.prepare('UPDATE families SET collection_id=?,name=?,description=?,notes=? WHERE id=?')
+    .run(collection_id, name, description || null, notes || null, req.params.id)
+  res.json(db.prepare('SELECT * FROM families WHERE id=?').get(req.params.id))
+})
+app.delete('/api/families/:id', (req, res) => {
+  const wids = db.prepare('SELECT id FROM watches WHERE family_id=?').all(req.params.id).map((r) => r.id)
+  unlinkImagesForWatches(wids)
+  db.prepare('DELETE FROM watches WHERE family_id=?').run(req.params.id)
+  db.prepare('DELETE FROM families WHERE id=?').run(req.params.id)
   res.json({ ok: true })
 })
 
 // ---------- Watches ----------
+const collectionOfFamily = (familyId) => {
+  const f = db.prepare('SELECT collection_id FROM families WHERE id=?').get(familyId)
+  return f ? f.collection_id : null
+}
+
 app.post('/api/watches', (req, res) => {
-  const { collection_id, name, values } = req.body
-  if (!collection_id || !name) return res.status(400).json({ error: 'collection_id and name required' })
-  const info = db.prepare('INSERT INTO watches (collection_id,name,values_json) VALUES (?,?,?)')
-    .run(collection_id, name, JSON.stringify(values || {}))
+  const { family_id, name, values } = req.body
+  const collection_id = collectionOfFamily(family_id)
+  if (!family_id || !collection_id || !name) return res.status(400).json({ error: 'family_id and name required' })
+  const info = db.prepare('INSERT INTO watches (collection_id,family_id,name,values_json) VALUES (?,?,?,?)')
+    .run(collection_id, family_id, name, JSON.stringify(values || {}))
   res.json(watchWithExtras(db.prepare('SELECT * FROM watches WHERE id=?').get(info.lastInsertRowid)))
 })
 app.put('/api/watches/:id', (req, res) => {
-  const { collection_id, name, values } = req.body
-  db.prepare("UPDATE watches SET collection_id=?,name=?,values_json=?,updated_at=datetime('now') WHERE id=?")
-    .run(collection_id, name, JSON.stringify(values || {}), req.params.id)
+  const { family_id, name, values } = req.body
+  const collection_id = collectionOfFamily(family_id)
+  if (!family_id || !collection_id || !name) return res.status(400).json({ error: 'family_id and name required' })
+  db.prepare("UPDATE watches SET collection_id=?,family_id=?,name=?,values_json=?,updated_at=datetime('now') WHERE id=?")
+    .run(collection_id, family_id, name, JSON.stringify(values || {}), req.params.id)
   res.json(watchWithExtras(db.prepare('SELECT * FROM watches WHERE id=?').get(req.params.id)))
 })
 app.delete('/api/watches/:id', (req, res) => {
@@ -183,6 +214,79 @@ app.put('/api/fields/:id', (req, res) => {
 app.delete('/api/fields/:id', (req, res) => {
   db.prepare('DELETE FROM field_defs WHERE id=?').run(req.params.id)
   res.json({ ok: true })
+})
+
+// ---------- Bulk JSON import ----------
+// Body: { fields?: [...], brands: [{ name, country?, ..., collections: [{ name, ...,
+//   families: [{ name, ..., watches: [{ name, values? }] }] }] }] }
+// Brands/collections/families are matched by name under their parent (created if missing);
+// watches are always appended.
+app.post('/api/import', (req, res) => {
+  const body = req.body || {}
+  const counts = { brands: 0, collections: 0, families: 0, watches: 0, fields: 0 }
+  try {
+    const run = db.transaction(() => {
+      // Optional field definitions
+      ;(body.fields || []).forEach((f) => {
+        if (!f || !f.label) return
+        let key = (f.key || f.label).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
+        if (!key) return
+        if (db.prepare('SELECT 1 FROM field_defs WHERE key=?').get(key)) return
+        const maxSort = db.prepare('SELECT COALESCE(MAX(sort),0)+1 AS s FROM field_defs').get().s
+        db.prepare(`INSERT INTO field_defs (key,label,type,options_json,unit,group_name,sort,show_in_gallery,show_in_table)
+          VALUES (?,?,?,?,?,?,?,?,?)`).run(key, f.label, f.type || 'text', JSON.stringify(f.options || []),
+          f.unit || null, f.group_name || 'Custom', maxSort,
+          f.show_in_gallery === false ? 0 : 1, f.show_in_table === false ? 0 : 1)
+        counts.fields++
+      })
+
+      const findBrand = db.prepare('SELECT id FROM brands WHERE name=? COLLATE NOCASE')
+      const findColl = db.prepare('SELECT id FROM collections WHERE brand_id=? AND name=? COLLATE NOCASE')
+      const findFam = db.prepare('SELECT id FROM families WHERE collection_id=? AND name=? COLLATE NOCASE')
+
+      ;(body.brands || []).forEach((b) => {
+        if (!b || !b.name) return
+        let brandId = findBrand.get(b.name)?.id
+        if (!brandId) {
+          brandId = db.prepare('INSERT INTO brands (name,country,founded,website,notes) VALUES (?,?,?,?,?)')
+            .run(b.name, b.country || null, b.founded || null, b.website || null, b.notes || null).lastInsertRowid
+          counts.brands++
+        }
+        ;(b.collections || []).forEach((c) => {
+          if (!c || !c.name) return
+          let collId = findColl.get(brandId, c.name)?.id
+          if (!collId) {
+            collId = db.prepare('INSERT INTO collections (brand_id,name,description,notes) VALUES (?,?,?,?)')
+              .run(brandId, c.name, c.description || null, c.notes || null).lastInsertRowid
+            counts.collections++
+          }
+          // A collection may list families, or watches directly (auto-placed in a "General" family).
+          const familyGroups = c.families && c.families.length
+            ? c.families
+            : (c.watches && c.watches.length ? [{ name: 'General', watches: c.watches }] : [])
+          familyGroups.forEach((fam) => {
+            if (!fam || !fam.name) return
+            let famId = findFam.get(collId, fam.name)?.id
+            if (!famId) {
+              famId = db.prepare('INSERT INTO families (collection_id,name,description,notes) VALUES (?,?,?,?)')
+                .run(collId, fam.name, fam.description || null, fam.notes || null).lastInsertRowid
+              counts.families++
+            }
+            ;(fam.watches || []).forEach((w) => {
+              if (!w || !w.name) return
+              db.prepare('INSERT INTO watches (collection_id,family_id,name,values_json) VALUES (?,?,?,?)')
+                .run(collId, famId, w.name, JSON.stringify(w.values || {}))
+              counts.watches++
+            })
+          })
+        })
+      })
+    })
+    run()
+    res.json({ ok: true, counts })
+  } catch (e) {
+    res.status(400).json({ error: e.message })
+  }
 })
 
 // ---------- Serve built frontend (production) ----------

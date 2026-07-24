@@ -24,6 +24,12 @@ export const api = {
   updateCollection: (id, c) => fetch(`/api/collections/${id}`, put(c)).then(j),
   deleteCollection: (id) => fetch(`/api/collections/${id}`, del()).then(j),
 
+  createFamily: (f) => fetch('/api/families', post(f)).then(j),
+  updateFamily: (id, f) => fetch(`/api/families/${id}`, put(f)).then(j),
+  deleteFamily: (id) => fetch(`/api/families/${id}`, del()).then(j),
+
+  importData: (payload) => fetch('/api/import', post(payload)).then(j),
+
   createWatch: (w) => fetch('/api/watches', post(w)).then(j),
   updateWatch: (id, w) => fetch(`/api/watches/${id}`, put(w)).then(j),
   deleteWatch: (id) => fetch(`/api/watches/${id}`, del()).then(j),

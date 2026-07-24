@@ -7,7 +7,7 @@ export default function WatchForm({ data, fields, item, onClose, onSaved }) {
   const editing = !!item?.id
   const [id, setId] = useState(item?.id || null)
   const [name, setName] = useState(item?.name || '')
-  const [collectionId, setCollectionId] = useState(item?.collection_id || data.collections[0]?.id || '')
+  const [familyId, setFamilyId] = useState(item?.family_id || (data.families || [])[0]?.id || '')
   const [values, setValues] = useState(item?.values ? { ...item.values } : {})
   const [images, setImages] = useState(item?.images || [])
   const [queued, setQueued] = useState([]) // {file, url} for new watch
@@ -33,10 +33,10 @@ export default function WatchForm({ data, fields, item, onClose, onSaved }) {
   }
 
   const save = async () => {
-    if (!name.trim() || !collectionId) return
+    if (!name.trim() || !familyId) return
     setSaving(true)
     try {
-      const payload = { collection_id: Number(collectionId), name: name.trim(), values }
+      const payload = { family_id: Number(familyId), name: name.trim(), values }
       let saved
       if (id) saved = await api.updateWatch(id, payload)
       else {
@@ -90,7 +90,7 @@ export default function WatchForm({ data, fields, item, onClose, onSaved }) {
           ) : <span />}
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="btn ghost" onClick={onClose}>Cancel</button>
-            <button className="btn primary" disabled={saving || !name.trim()} onClick={save}>
+            <button className="btn primary" disabled={saving || !name.trim() || !familyId} onClick={save}>
               {saving ? 'Saving…' : editing ? 'Save Changes' : 'Create Watch'}
             </button>
           </div>
@@ -102,16 +102,24 @@ export default function WatchForm({ data, fields, item, onClose, onSaved }) {
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. SRPD55 “Black Boy”" autoFocus />
         </div>
         <div className="field">
-          <label>Brand › Collection *</label>
-          <select value={collectionId} onChange={(e) => setCollectionId(e.target.value)}>
-            {data.brands.map((b) => (
-              <optgroup key={b.id} label={b.name}>
-                {data.collections.filter((c) => c.brand_id === b.id).map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
+          <label>Brand › Collection › Family *</label>
+          {(data.families || []).length ? (
+            <select value={familyId} onChange={(e) => setFamilyId(e.target.value)}>
+              {data.brands.map((b) => data.collections.filter((c) => c.brand_id === b.id).map((c) => {
+                const fams = (data.families || []).filter((f) => f.collection_id === c.id)
+                if (!fams.length) return null
+                return (
+                  <optgroup key={c.id} label={`${b.name} · ${c.name}`}>
+                    {fams.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                  </optgroup>
+                )
+              }))}
+            </select>
+          ) : (
+            <div style={{ color: 'var(--text-faint)', fontSize: 12.5 }}>
+              Create a Family first (top bar → Manage) before adding watches.
+            </div>
+          )}
         </div>
       </div>
 

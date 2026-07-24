@@ -73,6 +73,35 @@ railway.json   Railway build/start config
 
 ## Customising
 
-- **Add a field:** top bar → **Fields** → *New Field*. Choose a type, group, and whether it's available in gallery cards / table columns.
-- **Add a brand or collection:** the **＋** buttons in the left sidebar (double-click a chip to edit).
-- **Add a watch:** **Add Watch** in the top bar. Assign it to a Brand › Collection, fill specs, upload photos.
+- **Hierarchy:** Brand › Collection › **Family** › Watch. Manage all levels in the top bar → **Manage** panel (add/edit/delete, with cascade delete downward).
+- **Add a field:** top bar → **Fields** → *New Field*. Choose a type, group, and whether it's available in gallery cards / table columns. Reorder groups with the ↑/↓ arrows.
+- **Add a watch:** **Add Watch** in the top bar. Assign it to a Brand › Collection › Family, fill specs, upload photos.
+
+## Bulk import (JSON)
+
+Top bar → **Manage** → **Import JSON…**. Paste or upload a file shaped like:
+
+```json
+{
+  "brands": [
+    {
+      "name": "Orient", "country": "Japan", "founded": "1950",
+      "collections": [
+        {
+          "name": "Sports",
+          "families": [
+            {
+              "name": "Mako",
+              "watches": [
+                { "name": "Mako II", "values": { "reference": "FAA02005D9", "movement": "Automatic", "case_size": 41.5, "water_resistance": 200, "price": 180 } }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+Brands, collections and families are matched by name (created if missing) so you can import incrementally without duplicates; watches are appended. `values` keys should match field keys (e.g. `reference`, `movement`, `case_size`). A collection can also list `watches` directly and they'll be placed in a "General" family. An optional top-level `"fields"` array can define new custom fields. Use **Download example** in the import dialog for a ready-made template.

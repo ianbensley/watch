@@ -17,8 +17,16 @@ export default function Filters({ data, maps, search, setSearch, filters, setFil
     return data.collections.filter((c) => filters.brands.includes(c.brand_id))
   }, [data.collections, filters.brands])
 
+  // Show families within the selected collections (or brands), else all
+  const visibleFamilies = useMemo(() => {
+    const fams = data.families || []
+    if (filters.collections.length) return fams.filter((f) => filters.collections.includes(f.collection_id))
+    if (filters.brands.length) return fams.filter((f) => filters.brands.includes(maps.collById[f.collection_id]?.brand_id))
+    return fams
+  }, [data.families, filters.collections, filters.brands, maps])
+
   const filterableFields = data.fields.filter((f) => ['select', 'number', 'boolean'].includes(f.type))
-  const active = filters.brands.length || filters.collections.length || Object.keys(filters.fields).length || search
+  const active = filters.brands.length || filters.collections.length || filters.families.length || Object.keys(filters.fields).length || search
 
   return (
     <div>
@@ -29,7 +37,7 @@ export default function Filters({ data, maps, search, setSearch, filters, setFil
         </div>
         {active ? (
           <button className="btn ghost sm" style={{ marginTop: 10 }}
-            onClick={() => { setSearch(''); setFilters({ brands: [], collections: [], fields: {} }) }}>
+            onClick={() => { setSearch(''); setFilters({ brands: [], collections: [], families: [], fields: {} }) }}>
             Clear all filters
           </button>
         ) : null}
@@ -61,6 +69,19 @@ export default function Filters({ data, maps, search, setSearch, filters, setFil
             </span>
           ))}
           {!visibleCollections.length && <span className="filter-label">No collections yet</span>}
+        </div>
+      </div>
+
+      <div className="side-section">
+        <div className="side-head"><span>Families</span></div>
+        <div className="chip-row">
+          {visibleFamilies.map((f) => (
+            <span key={f.id} className={`chip ${filters.families.includes(f.id) ? 'on' : ''}`}
+              onClick={() => setFilters((s) => ({ ...s, families: toggle(s.families, f.id) }))}>
+              {f.name}
+            </span>
+          ))}
+          {!visibleFamilies.length && <span className="filter-label">No families yet</span>}
         </div>
       </div>
 
