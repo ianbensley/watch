@@ -35,7 +35,7 @@ app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '7d' }))
 
 // ---------- Helpers ----------
 const parse = (row) => row && { ...row, values: JSON.parse(row.values_json || '{}') }
-const imagesFor = db.prepare('SELECT id, filename, url, is_primary, sort FROM images WHERE watch_id = ? ORDER BY is_primary DESC, sort ASC')
+const imagesFor = db.prepare('SELECT id, filename, url, is_primary, sort FROM images WHERE watch_id = ? ORDER BY sort ASC, id ASC')
 
 const imageUrl = (im) => im.url ? im.url : (im.filename ? `/uploads/${im.filename}` : '')
 
@@ -171,14 +171,41 @@ app.post('/api/watches/:id/images', upload.array('images', 8), (req, res) => {
   })
   res.json(watchWithExtras(db.prepare('SELECT * FROM watches WHERE id=?').get(wId)))
 })
-// Add one or more external image URLs to a watch
-app.post('/api/watches/:id/image-urls', (req, res) => {
+// Add image URLs to a watch. Each URL is downloaded and stored as a real file when
+// possible (so it behaves like an upload); if the download fails it is kept as an
+// external link so the image still shows.
+const EXT_BY_TYPE = { 'image/jpeg': '.jpg', 'image/jpg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif', 'image/avif': '.avif', 'image/bmp': '.bmp', 'image/svg+xml': '.svg' }
+app.post('/api/watches/:id/image-urls', async (req, res) => {
   const wId = req.params.id
   const urls = (req.body.urls || []).map((u) => String(u).trim()).filter(Boolean)
-  const existing = imagesFor.all(wId).length
+  let existing = imagesFor.all(wId).length
   const ins = db.prepare('INSERT INTO images (watch_id,filename,url,is_primary,sort) VALUES (?,?,?,?,?)')
-  urls.forEach((u, i) => ins.run(wId, null, u, existing === 0 && i === 0 ? 1 : 0, existing + i))
+  for (let i = 0; i < urls.length; i++) {
+    const u = urls[i]
+    let filename = null, extUrl = null
+    try {
+      const r = await fetch(u, { redirect: 'follow' })
+      const ct = (r.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()
+      if (r.ok && ct.startsWith('image/')) {
+        const buf = Buffer.from(await r.arrayBuffer())
+        if (buf.length > 0 && buf.length <= 15 * 1024 * 1024) {
+          filename = `${Date.now()}-${nanoid(8)}${EXT_BY_TYPE[ct] || '.jpg'}`
+          fs.writeFileSync(path.join(UPLOAD_DIR, filename), buf)
+        } else extUrl = u
+      } else extUrl = u
+    } catch { extUrl = u }
+    ins.run(wId, filename, extUrl, existing === 0 && i === 0 ? 1 : 0, existing)
+    existing++
+  }
   res.json(watchWithExtras(db.prepare('SELECT * FROM watches WHERE id=?').get(wId)))
+})
+// Reorder a watch's images. Body: { order: [imageId, ...] }
+app.put('/api/watches/:id/images/order', (req, res) => {
+  const { order } = req.body
+  if (!Array.isArray(order)) return res.status(400).json({ error: 'order array required' })
+  const upd = db.prepare('UPDATE images SET sort=? WHERE id=? AND watch_id=?')
+  db.transaction(() => order.forEach((imgId, i) => upd.run(i, imgId, req.params.id)))()
+  res.json(watchWithExtras(db.prepare('SELECT * FROM watches WHERE id=?').get(req.params.id)))
 })
 app.put('/api/images/:id/primary', (req, res) => {
   const img = db.prepare('SELECT * FROM images WHERE id=?').get(req.params.id)

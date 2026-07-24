@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Modal from './Modal.jsx'
 import { api } from '../api.js'
 import { IcTrash } from './Icons.jsx'
@@ -15,8 +15,11 @@ export default function WatchForm({ data, fields, item, onClose, onSaved }) {
   const [queued, setQueued] = useState([]) // { file?, url, external? } for a not-yet-saved watch
   const [imageMode, setImageMode] = useState(item?.image_mode || 'single')
   const [urlInput, setUrlInput] = useState('')
-  const [saving, setSaving] = useState(false)
+  const [busy, setBusy] = useState(false)      // creating / adding images
+  const [status, setStatus] = useState('')     // autosave status text
+  const [dragIdx, setDragIdx] = useState(null)
   const fileRef = useRef(null)
+  const firstRun = useRef(true)
 
   const groups = useMemo(() => {
     const g = {}
@@ -25,41 +28,81 @@ export default function WatchForm({ data, fields, item, onClose, onSaved }) {
   }, [fields])
 
   const set = (k, v) => setValues((s) => ({ ...s, [k]: v }))
+  const payload = () => ({ family_id: Number(familyId), name: name.trim(), values, image_mode: imageMode })
+  const canSave = name.trim() && familyId
 
-  const pickFiles = async (files) => {
-    if (!files?.length) return
-    if (id) setImages((await api.uploadImages(id, files)).images)
-    else setQueued((q) => [...q, ...[...files].map((file) => ({ file, url: URL.createObjectURL(file) }))])
+  // ---- Auto-save while editing an existing watch ----
+  const saveNow = async () => {
+    if (!editing || !canSave) return
+    setStatus('Saving…')
+    try { await api.updateWatch(id, payload()); setStatus('Saved') }
+    catch { setStatus('Save failed') }
+  }
+  useEffect(() => {
+    if (!editing) return
+    if (firstRun.current) { firstRun.current = false; return }
+    if (!canSave) return
+    setStatus('Editing…')
+    const t = setTimeout(saveNow, 600)
+    return () => clearTimeout(t)
+  }, [name, familyId, values, imageMode]) // eslint-disable-line
+
+  // Close: flush a final save (editing) then refresh the parent views
+  const close = async () => {
+    if (editing && canSave) { try { await api.updateWatch(id, payload()) } catch {} }
+    await onSaved()
+    onClose()
   }
 
+  // ---- Images ----
+  const pickFiles = async (files) => {
+    if (!files?.length) return
+    if (id) { setBusy(true); try { setImages((await api.uploadImages(id, files)).images) } finally { setBusy(false) } }
+    else setQueued((q) => [...q, ...[...files].map((file) => ({ file, url: URL.createObjectURL(file) }))])
+  }
   const addUrl = async () => {
     const u = urlInput.trim()
     if (!u) return
     setUrlInput('')
-    if (id) setImages((await api.addImageUrls(id, [u])).images)
+    if (id) { setBusy(true); try { setImages((await api.addImageUrls(id, [u])).images) } finally { setBusy(false) } }
     else setQueued((q) => [...q, { url: u, external: true }])
   }
-
-  const save = async () => {
-    if (!name.trim() || !familyId) return
-    setSaving(true)
-    try {
-      const payload = { family_id: Number(familyId), name: name.trim(), values, image_mode: imageMode }
-      let saved = id ? await api.updateWatch(id, payload) : await api.createWatch(payload)
-      if (!id) {
-        setId(saved.id)
-        const files = queued.filter((q) => q.file).map((q) => q.file)
-        const urls = queued.filter((q) => q.external).map((q) => q.url)
-        if (files.length) saved = await api.uploadImages(saved.id, files)
-        if (urls.length) saved = await api.addImageUrls(saved.id, urls)
-      }
-      await onSaved()
-      onClose()
-    } finally { setSaving(false) }
-  }
-
   const removeImage = async (img) => { await api.deleteImage(img.id); setImages((a) => a.filter((i) => i.id !== img.id)) }
   const makePrimary = async (img) => { setImages((await api.setPrimaryImage(img.id)).images) }
+
+  const reorder = async (from, to) => {
+    if (from == null || from === to) return
+    if (id) {
+      const list = [...images]
+      const [m] = list.splice(from, 1); list.splice(to, 0, m)
+      setImages(list)
+      try { await api.reorderImages(id, list.map((i) => i.id)) } catch {}
+    } else {
+      const list = [...queued]
+      const [m] = list.splice(from, 1); list.splice(to, 0, m)
+      setQueued(list)
+    }
+  }
+
+  // ---- Create (new watch only) ----
+  const create = async () => {
+    if (!canSave) return
+    setBusy(true)
+    try {
+      let saved = await api.createWatch(payload())
+      setId(saved.id)
+      const files = queued.filter((q) => q.file).map((q) => q.file)
+      const urls = queued.filter((q) => q.external).map((q) => q.url)
+      if (files.length) saved = await api.uploadImages(saved.id, files)
+      if (urls.length) saved = await api.addImageUrls(saved.id, urls)
+      await onSaved()
+      onClose()
+    } finally { setBusy(false) }
+  }
+
+  const del = async () => {
+    if (confirm(`Delete "${name}"? This cannot be undone.`)) { await api.deleteWatch(id); await onSaved(); onClose() }
+  }
 
   const renderField = (f) => {
     const v = values[f.key] ?? ''
@@ -89,18 +132,22 @@ export default function WatchForm({ data, fields, item, onClose, onSaved }) {
   const shownImages = id ? images : queued
 
   return (
-    <Modal wide sub={editing ? 'Edit Watch' : 'New Watch'} title={name || 'Untitled Watch'} onClose={onClose}
-      footer={(
+    <Modal wide sub={editing ? 'Edit Watch' : 'New Watch'} title={name || 'Untitled Watch'} onClose={close}
+      footer={editing ? (
         <>
-          {editing ? (
-            <button className="btn ghost danger" onClick={async () => {
-              if (confirm(`Delete "${name}"? This cannot be undone.`)) { await api.deleteWatch(id); await onSaved(); onClose() }
-            }}><IcTrash size={15} /> Delete</button>
-          ) : <span />}
+          <button className="btn ghost danger" onClick={del}><IcTrash size={15} /> Delete</button>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <span style={{ color: 'var(--text-faint)', fontSize: 12 }}>{status || 'All changes saved'}</span>
+            <button className="btn gold" onClick={close}>Done</button>
+          </div>
+        </>
+      ) : (
+        <>
+          <span />
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="btn ghost" onClick={onClose}>Cancel</button>
-            <button className="btn primary" disabled={saving || !name.trim() || !familyId} onClick={save}>
-              {saving ? 'Saving…' : editing ? 'Save Changes' : 'Create Watch'}
+            <button className="btn primary" disabled={busy || !canSave} onClick={create}>
+              {busy ? 'Creating…' : 'Create Watch'}
             </button>
           </div>
         </>
@@ -141,14 +188,19 @@ export default function WatchForm({ data, fields, item, onClose, onSaved }) {
         </span>
       </div>
       <div style={{ color: 'var(--text-faint)', fontSize: 11.5, marginTop: -6, marginBottom: 8 }}>
-        How this watch’s multiple photos are shown on its card. Slideshow speed is in Settings.
+        {shownImages.length > 1 ? 'Drag thumbnails to reorder. ' : ''}Display mode sets how photos appear on the card; slideshow speed is in Settings.
       </div>
 
       <div className="img-strip">
         {shownImages.map((img, i) => (
-          <div className="img-thumb" key={img.id || i}>
-            <img src={img.url} alt="" />
-            {(img.external || img.filename === null) && <span className="url-tag" title="Linked URL">URL</span>}
+          <div className={`img-thumb ${dragIdx === i ? 'dragging' : ''}`} key={img.id || i}
+            draggable
+            onDragStart={() => setDragIdx(i)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => { reorder(dragIdx, i); setDragIdx(null) }}
+            onDragEnd={() => setDragIdx(null)}>
+            <img src={img.url} alt="" draggable={false} />
+            {(img.external || img.filename === null) && <span className="url-tag" title="Linked (not downloaded)">URL</span>}
             {id && <span className={`star ${img.is_primary ? 'on' : ''}`} title="Set as primary" onClick={() => makePrimary(img)}>★</span>}
             <span className="del" title="Remove"
               onClick={() => id ? removeImage(img) : setQueued((q) => q.filter((_, j) => j !== i))}>✕</span>
@@ -163,7 +215,7 @@ export default function WatchForm({ data, fields, item, onClose, onSaved }) {
         <input type="url" placeholder="Paste an image URL…" value={urlInput}
           onChange={(e) => setUrlInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addUrl() } }} />
-        <button type="button" className="btn sm" onClick={addUrl} disabled={!urlInput.trim()}>Add URL</button>
+        <button type="button" className="btn sm" onClick={addUrl} disabled={!urlInput.trim() || busy}>Add URL</button>
       </div>
 
       {Object.entries(groups).map(([group, gf]) => (
