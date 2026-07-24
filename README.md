@@ -10,7 +10,8 @@ A self-hosted directory for cataloguing watches by **Brand › Collection › Wa
 - **Customisable displays** — pick exactly which fields appear on gallery cards and which columns show in the table (saved per-browser).
 - **Filter everything** — search box plus filters for brands, collections, and every spec (select chips, number min/max ranges, yes/no toggles).
 - **Fully custom fields** — add/edit/delete spec fields with types: `text`, `long text`, `number`, `select`, `boolean`, `date`, `url`. Group them and set units (mm, m, £, h…).
-- **Photos** — upload multiple images per watch, pick a primary, delete individually.
+- **Photos** — upload files and/or link image URLs (mix both), pick a primary, delete individually.
+- **Per-watch photo display** — choose how each watch shows multiple photos: Single, Collage, or an auto-advancing Slideshow. Slideshow speed is set globally in Settings.
 - **Add / edit / delete** brands, collections and watches from the UI.
 - **Persistent** — SQLite database + uploaded images stored on a Railway volume.
 - Seeded with example Japanese watches (Seiko, Grand Seiko, Citizen, Casio) — edit or delete freely.
@@ -105,3 +106,13 @@ Top bar → **Manage** → **Import JSON…**. Paste or upload a file shaped lik
 ```
 
 Brands, collections and families are matched by name (created if missing) so you can import incrementally without duplicates; watches are appended. `values` keys should match field keys (e.g. `reference`, `movement`, `case_size`). A collection can also list `watches` directly and they'll be placed in a "General" family. An optional top-level `"fields"` array can define new custom fields. Use **Download example** in the import dialog for a ready-made template.
+
+Each watch may also include image URLs and a display mode:
+
+```json
+{ "name": "Mako II", "image_mode": "slideshow",
+  "images": ["https://example.com/mako-front.jpg", "https://example.com/mako-back.jpg"],
+  "values": { "reference": "FAA02005D9" } }
+```
+
+`image_mode` is one of `single`, `collage`, or `slideshow`.

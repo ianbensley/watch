@@ -15,3 +15,4 @@ export const IcMenu = (p) => (<svg {...S(p)}><path d="M4 6h16M4 12h16M4 18h16"/>
 export const IcWatch = (p) => (<svg {...S(p)}><circle cx="12" cy="12" r="6"/><path d="M12 9v3l2 1M9 6l.5-3h5L15 6M9 18l.5 3h5l.5-3"/></svg>)
 export const IcChevron = (p) => (<svg {...S(p)}><path d="m9 6 6 6-6 6"/></svg>)
 export const IcLock = (p) => (<svg {...S(p)}><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/></svg>)
+export const IcSliders = (p) => (<svg {...S(p)}><path d="M4 21v-7M4 10V3M12 21v-8M12 9V3M20 21v-4M20 13V3M1 14h6M9 9h6M17 17h6"/></svg>)

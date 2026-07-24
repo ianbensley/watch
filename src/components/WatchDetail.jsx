@@ -2,11 +2,12 @@ import { useState } from 'react'
 import Modal from './Modal.jsx'
 import { api } from '../api.js'
 import { fmtValue, statusColor } from '../util.js'
-import { IcEdit, IcWatch, IcTrash } from './Icons.jsx'
+import { IcEdit, IcTrash } from './Icons.jsx'
+import WatchImages from './WatchImages.jsx'
 
-export default function WatchDetail({ watch, fields, onClose, onEdit, onDeleted }) {
+export default function WatchDetail({ watch, fields, onClose, onEdit, onDeleted, speed = 3 }) {
   const imgs = watch.images || []
-  const [active, setActive] = useState(imgs.find((i) => i.is_primary)?.url || imgs[0]?.url || null)
+  const [active, setActive] = useState(null) // forced image url, or null to follow the display mode
   const status = watch.values.status
 
   const withVal = fields.filter((f) => f.key !== 'notes' && watch.values[f.key] !== undefined && watch.values[f.key] !== '')
@@ -26,10 +27,15 @@ export default function WatchDetail({ watch, fields, onClose, onEdit, onDeleted 
       )}>
       <div className="detail-hero">
         <div className="photo">
-          {active ? <img className="main-photo" src={active} alt={watch.name} />
-            : <div className="main-photo" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3a352e' }}><IcWatch size={64} /></div>}
+          <div className="detail-photo-box">
+            <WatchImages images={imgs} mode={watch.image_mode} speed={speed} forcedUrl={active} />
+          </div>
           {imgs.length > 1 && (
             <div className="img-strip" style={{ marginTop: 10 }}>
+              {watch.image_mode !== 'single' && (
+                <div className={`img-thumb auto ${active === null ? 'sel' : ''}`} title="Follow display mode"
+                  onClick={() => setActive(null)}>Auto</div>
+              )}
               {imgs.map((im) => (
                 <div className="img-thumb" key={im.id} style={{ width: 52, height: 52, outline: active === im.url ? '2px solid var(--gold)' : 'none' }}
                   onClick={() => setActive(im.url)}>

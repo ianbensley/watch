@@ -39,6 +39,7 @@ export const api = {
     ;[...files].forEach((f) => fd.append('images', f))
     return fetch(`/api/watches/${watchId}/images`, { method: 'POST', headers: auth(), body: fd }).then(j)
   },
+  addImageUrls: (watchId, urls) => fetch(`/api/watches/${watchId}/image-urls`, post({ urls })).then(j),
   setPrimaryImage: (id) => fetch(`/api/images/${id}/primary`, { method: 'PUT', headers: auth() }).then(j),
   deleteImage: (id) => fetch(`/api/images/${id}`, del()).then(j),
 

@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS watches (
   family_id INTEGER REFERENCES families(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   values_json TEXT DEFAULT '{}',
+  image_mode TEXT DEFAULT 'single',
   sort INTEGER DEFAULT 0,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
@@ -77,11 +78,18 @@ CREATE TABLE IF NOT EXISTS field_defs (
 CREATE TABLE IF NOT EXISTS images (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   watch_id INTEGER NOT NULL REFERENCES watches(id) ON DELETE CASCADE,
-  filename TEXT NOT NULL,
+  filename TEXT,
+  url TEXT,
   is_primary INTEGER DEFAULT 0,
   sort INTEGER DEFAULT 0
 );
 `)
+
+// ---- Migration: image URLs + per-watch display mode ----
+const imageCols = db.prepare('PRAGMA table_info(images)').all().map((c) => c.name)
+if (!imageCols.includes('url')) db.exec('ALTER TABLE images ADD COLUMN url TEXT')
+const watchCols2 = db.prepare('PRAGMA table_info(watches)').all().map((c) => c.name)
+if (!watchCols2.includes('image_mode')) db.exec("ALTER TABLE watches ADD COLUMN image_mode TEXT DEFAULT 'single'")
 
 // ---- Migration: add family_id to older databases and backfill a "General" family ----
 const watchCols = db.prepare('PRAGMA table_info(watches)').all().map((c) => c.name)

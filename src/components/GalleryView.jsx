@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { fmtValue, statusColor } from '../util.js'
-import { IcColumns, IcWatch } from './Icons.jsx'
+import { IcColumns } from './Icons.jsx'
+import WatchImages from './WatchImages.jsx'
 
 const KEY = 'galleryFields'
 
-export default function GalleryView({ watches, fields, onOpen }) {
+export default function GalleryView({ watches, fields, onOpen, speed = 3 }) {
   const galleryFields = fields.filter((f) => f.show_in_gallery)
   const [visible, setVisible] = useState(() => {
     try { return JSON.parse(localStorage.getItem(KEY)) || galleryFields.slice(0, 4).map((f) => f.key) }
@@ -41,13 +42,11 @@ export default function GalleryView({ watches, fields, onOpen }) {
       ) : (
         <div className="gallery">
           {watches.map((w) => {
-            const img = w.images?.find((i) => i.is_primary) || w.images?.[0]
             const status = w.values.status
             return (
               <div className="card" key={w.id} onClick={() => onOpen(w)}>
                 <div className="card-img">
-                  {img ? <img src={img.url} alt={w.name} loading="lazy" />
-                    : <span className="placeholder"><IcWatch size={46} /></span>}
+                  <WatchImages images={w.images} mode={w.image_mode} speed={speed} />
                   {status && <span className="status-dot" style={{ color: statusColor(status) }}>{status}</span>}
                 </div>
                 <div className="card-body">

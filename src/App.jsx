@@ -10,9 +10,10 @@ import EntityForm from './components/EntityForm.jsx'
 import FieldManager from './components/FieldManager.jsx'
 import LibraryManager from './components/LibraryManager.jsx'
 import ImportModal from './components/ImportModal.jsx'
+import SettingsModal from './components/SettingsModal.jsx'
 import WatchDetail from './components/WatchDetail.jsx'
 import Login from './components/Login.jsx'
-import { IcTree, IcGallery, IcTable, IcPlus, IcCog, IcMenu, IcWatch, IcColumns, IcLock } from './components/Icons.jsx'
+import { IcTree, IcGallery, IcTable, IcPlus, IcCog, IcMenu, IcWatch, IcColumns, IcLock, IcSliders } from './components/Icons.jsx'
 
 const LS = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d } catch { return d } }
 
@@ -30,6 +31,8 @@ function Directory({ onLogout }) {
   const [filters, setFilters] = useState({ brands: [], collections: [], families: [], fields: {} })
   const [modal, setModal] = useState(null) // {type, item}
   const [detail, setDetail] = useState(null)
+  const [settings, setSettings] = useState(() => LS('settings', { slideshowSpeed: 3 }))
+  useEffect(() => { localStorage.setItem('settings', JSON.stringify(settings)) }, [settings])
 
   const reload = useCallback(async () => setData(await api.data()), [])
   useEffect(() => { reload() }, [reload])
@@ -103,6 +106,7 @@ function Directory({ onLogout }) {
         <span className="count-chip">{filtered.length} / {maps.watches.length} watches</span>
         <button className="btn ghost" onClick={() => setModal({ type: 'library' })}><IcColumns size={15} /><span className="lbl"> Manage</span></button>
         <button className="btn ghost" onClick={() => setModal({ type: 'fields' })}><IcCog size={15} /><span className="lbl"> Fields</span></button>
+        <button className="btn icon ghost" onClick={() => setModal({ type: 'settings' })} title="Settings"><IcSliders size={16} /></button>
         <button className="btn gold" onClick={() => setModal({ type: 'watch' })}><IcPlus size={15} /><span className="lbl"> Add Watch</span></button>
         <button className="btn icon ghost" onClick={onLogout} title="Lock"><IcLock size={16} /></button>
       </div>
@@ -122,7 +126,7 @@ function Directory({ onLogout }) {
 
         <div className="main">
           {view === 'gallery' && (
-            <GalleryView watches={filtered} fields={data.fields} onOpen={openDetail} />
+            <GalleryView watches={filtered} fields={data.fields} onOpen={openDetail} speed={settings.slideshowSpeed} />
           )}
           {view === 'table' && (
             <TableView watches={filtered} fields={data.fields} onOpen={openDetail} />
@@ -155,11 +159,15 @@ function Directory({ onLogout }) {
       {modal?.type === 'import' && (
         <ImportModal onClose={() => setModal(null)} onSaved={reload} />
       )}
+      {modal?.type === 'settings' && (
+        <SettingsModal settings={settings} onSave={setSettings} onClose={() => setModal(null)} />
+      )}
 
       {detail && (
         <WatchDetail watch={maps.watches.find((w) => w.id === detail.id) || detail}
           fields={data.fields}
           onClose={() => setDetail(null)}
+          speed={settings.slideshowSpeed}
           onEdit={() => { setModal({ type: 'watch', item: detail }); setDetail(null) }}
           onDeleted={() => { setDetail(null); reload() }} />
       )}

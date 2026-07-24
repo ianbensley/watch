@@ -35,18 +35,20 @@ app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '7d' }))
 
 // ---------- Helpers ----------
 const parse = (row) => row && { ...row, values: JSON.parse(row.values_json || '{}') }
-const imagesFor = db.prepare('SELECT id, filename, is_primary, sort FROM images WHERE watch_id = ? ORDER BY is_primary DESC, sort ASC')
+const imagesFor = db.prepare('SELECT id, filename, url, is_primary, sort FROM images WHERE watch_id = ? ORDER BY is_primary DESC, sort ASC')
 
-// Remove image files from disk for a set of watches (used before cascade deletes).
+const imageUrl = (im) => im.url ? im.url : (im.filename ? `/uploads/${im.filename}` : '')
+
+// Remove uploaded image files from disk for a set of watches (used before cascade deletes).
 function unlinkImagesForWatches(watchIds) {
   if (!watchIds.length) return
   const rows = db.prepare(`SELECT filename FROM images WHERE watch_id IN (${watchIds.map(() => '?').join(',')})`).all(...watchIds)
-  rows.forEach((im) => { try { fs.unlinkSync(path.join(UPLOAD_DIR, im.filename)) } catch {} })
+  rows.forEach((im) => { if (im.filename) { try { fs.unlinkSync(path.join(UPLOAD_DIR, im.filename)) } catch {} } })
 }
 
 function watchWithExtras(row) {
   const w = parse(row)
-  w.images = imagesFor.all(w.id).map((im) => ({ ...im, url: `/uploads/${im.filename}` }))
+  w.images = imagesFor.all(w.id).map((im) => ({ ...im, url: imageUrl(im) }))
   delete w.values_json
   return w
 }
@@ -133,20 +135,23 @@ const collectionOfFamily = (familyId) => {
   return f ? f.collection_id : null
 }
 
+const IMAGE_MODES = ['single', 'collage', 'slideshow']
+const cleanMode = (m) => IMAGE_MODES.includes(m) ? m : 'single'
+
 app.post('/api/watches', (req, res) => {
-  const { family_id, name, values } = req.body
+  const { family_id, name, values, image_mode } = req.body
   const collection_id = collectionOfFamily(family_id)
   if (!family_id || !collection_id || !name) return res.status(400).json({ error: 'family_id and name required' })
-  const info = db.prepare('INSERT INTO watches (collection_id,family_id,name,values_json) VALUES (?,?,?,?)')
-    .run(collection_id, family_id, name, JSON.stringify(values || {}))
+  const info = db.prepare('INSERT INTO watches (collection_id,family_id,name,values_json,image_mode) VALUES (?,?,?,?,?)')
+    .run(collection_id, family_id, name, JSON.stringify(values || {}), cleanMode(image_mode))
   res.json(watchWithExtras(db.prepare('SELECT * FROM watches WHERE id=?').get(info.lastInsertRowid)))
 })
 app.put('/api/watches/:id', (req, res) => {
-  const { family_id, name, values } = req.body
+  const { family_id, name, values, image_mode } = req.body
   const collection_id = collectionOfFamily(family_id)
   if (!family_id || !collection_id || !name) return res.status(400).json({ error: 'family_id and name required' })
-  db.prepare("UPDATE watches SET collection_id=?,family_id=?,name=?,values_json=?,updated_at=datetime('now') WHERE id=?")
-    .run(collection_id, family_id, name, JSON.stringify(values || {}), req.params.id)
+  db.prepare("UPDATE watches SET collection_id=?,family_id=?,name=?,values_json=?,image_mode=?,updated_at=datetime('now') WHERE id=?")
+    .run(collection_id, family_id, name, JSON.stringify(values || {}), cleanMode(image_mode), req.params.id)
   res.json(watchWithExtras(db.prepare('SELECT * FROM watches WHERE id=?').get(req.params.id)))
 })
 app.delete('/api/watches/:id', (req, res) => {
@@ -166,6 +171,15 @@ app.post('/api/watches/:id/images', upload.array('images', 8), (req, res) => {
   })
   res.json(watchWithExtras(db.prepare('SELECT * FROM watches WHERE id=?').get(wId)))
 })
+// Add one or more external image URLs to a watch
+app.post('/api/watches/:id/image-urls', (req, res) => {
+  const wId = req.params.id
+  const urls = (req.body.urls || []).map((u) => String(u).trim()).filter(Boolean)
+  const existing = imagesFor.all(wId).length
+  const ins = db.prepare('INSERT INTO images (watch_id,filename,url,is_primary,sort) VALUES (?,?,?,?,?)')
+  urls.forEach((u, i) => ins.run(wId, null, u, existing === 0 && i === 0 ? 1 : 0, existing + i))
+  res.json(watchWithExtras(db.prepare('SELECT * FROM watches WHERE id=?').get(wId)))
+})
 app.put('/api/images/:id/primary', (req, res) => {
   const img = db.prepare('SELECT * FROM images WHERE id=?').get(req.params.id)
   if (!img) return res.status(404).json({ error: 'not found' })
@@ -176,7 +190,7 @@ app.put('/api/images/:id/primary', (req, res) => {
 app.delete('/api/images/:id', (req, res) => {
   const img = db.prepare('SELECT * FROM images WHERE id=?').get(req.params.id)
   if (!img) return res.status(404).json({ error: 'not found' })
-  try { fs.unlinkSync(path.join(UPLOAD_DIR, img.filename)) } catch {}
+  if (img.filename) { try { fs.unlinkSync(path.join(UPLOAD_DIR, img.filename)) } catch {} }
   db.prepare('DELETE FROM images WHERE id=?').run(img.id)
   res.json({ ok: true })
 })
@@ -274,8 +288,11 @@ app.post('/api/import', (req, res) => {
             }
             ;(fam.watches || []).forEach((w) => {
               if (!w || !w.name) return
-              db.prepare('INSERT INTO watches (collection_id,family_id,name,values_json) VALUES (?,?,?,?)')
-                .run(collId, famId, w.name, JSON.stringify(w.values || {}))
+              const wId = db.prepare('INSERT INTO watches (collection_id,family_id,name,values_json,image_mode) VALUES (?,?,?,?,?)')
+                .run(collId, famId, w.name, JSON.stringify(w.values || {}), cleanMode(w.image_mode)).lastInsertRowid
+              const urls = (w.images || w.image_urls || []).map((u) => String(u).trim()).filter(Boolean)
+              const insImg = db.prepare('INSERT INTO images (watch_id,filename,url,is_primary,sort) VALUES (?,?,?,?,?)')
+              urls.forEach((u, i) => insImg.run(wId, null, u, i === 0 ? 1 : 0, i))
               counts.watches++
             })
           })
